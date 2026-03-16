@@ -53,35 +53,38 @@
     const note = document.getElementById('statusNote');
     const badgeArea = document.getElementById('badgeArea');
 
-    async function checkStatus() {
-        try {
-            const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                headers: { 
-                    'Authorization': `token ${GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json'
+async function triggerSession() {
+    if(!confirm("Start the Wordly test session?")) return;
+    
+    btn.innerText = "Triggering...";
+    btn.disabled = true;
+    
+    // We use a simpler request to try and bypass the CORS preflight check
+    try {
+        const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            method: 'POST', // Try POST if PATCH is blocked
+            headers: { 
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+                files: { 
+                    [FILENAME]: { 
+                        content: JSON.stringify({ status: "trigger" }) 
+                    } 
                 }
-            });
-            const data = await res.json();
-            const content = JSON.parse(data.files[FILENAME].content);
-            
-            if (content.status === "idle") {
-                btn.innerText = "🚀 Start Wordly Test Session";
-                btn.className = "btn active";
-                btn.disabled = false;
-                note.style.display = "none";
-                badgeArea.innerHTML = '<span class="status-badge idle-badge">Ready</span>';
-            } else if (content.status === "trigger" || content.status === "streaming") {
-                btn.innerText = "⏳ Session in Progress";
-                btn.className = "btn disabled";
-                btn.disabled = true;
-                note.style.display = "block";
-                badgeArea.innerHTML = '<span class="status-badge busy-badge">Streaming</span>';
-            }
-        } catch (e) { 
-            console.error("Status check failed:", e); 
-            btn.innerText = "Connection Error";
-        }
+            })
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        setTimeout(checkStatus, 3000);
+    } catch (e) {
+        // If POST fails, GitHub really wants us to use a backend or a different trigger
+        console.error("Trigger Failed:", e);
+        alert("CORS Block: GitHub is preventing the write command from a browser.");
+        checkStatus();
     }
+}
 
     async function triggerSession() {
         if(!confirm("Start the Wordly test session?")) return;
