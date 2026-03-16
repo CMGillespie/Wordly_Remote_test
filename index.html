@@ -56,7 +56,10 @@
     async function checkStatus() {
         try {
             const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                headers: { 'Authorization': `token ${GITHUB_TOKEN}` }
+                headers: { 
+                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
             });
             const data = await res.json();
             const content = JSON.parse(data.files[FILENAME].content);
@@ -67,7 +70,7 @@
                 btn.disabled = false;
                 note.style.display = "none";
                 badgeArea.innerHTML = '<span class="status-badge idle-badge">Ready</span>';
-            } else {
+            } else if (content.status === "trigger" || content.status === "streaming") {
                 btn.innerText = "⏳ Session in Progress";
                 btn.className = "btn disabled";
                 btn.disabled = true;
@@ -87,30 +90,40 @@
         btn.disabled = true;
         
         try {
-            await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                 method: 'PATCH',
                 headers: { 
                     'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    files: { [FILENAME]: { content: JSON.stringify({ status: "trigger" }) } }
+                    files: { 
+                        [FILENAME]: { 
+                            content: JSON.stringify({ status: "trigger" }) 
+                        } 
+                    }
                 })
             });
-            // Give the Mac a moment to react before refreshing UI
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("GitHub API Error:", errorData);
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            // Success! Wait 3 seconds for Mac to pick it up
             setTimeout(checkStatus, 3000);
         } catch (e) {
-            alert("Failed to trigger session.");
+            console.error("Trigger Failed:", e);
+            alert("Failed to trigger session. Check Console for details.");
             checkStatus();
         }
     }
 
     btn.onclick = triggerSession;
-    
-    // Auto-refresh status every 20 seconds
     setInterval(checkStatus, 20000);
     checkStatus();
 </script>
-
 </body>
 </html>
