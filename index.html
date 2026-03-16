@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordly Test Trigger</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 650px; margin: 40px auto; line-height: 1.6; padding: 20px; color: #333; }
+        .card { border: 1px solid #ddd; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .btn { display: inline-block; padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 8px; color: white; transition: all 0.2s; width: 100%; text-align: center; }
+        .active { background-color: #007bff; }
+        .active:hover { background-color: #0056b3; }
+        .disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .links { margin-top: 30px; background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 5px solid #007bff; }
+        .links a { color: #007bff; text-decoration: none; font-weight: 500; }
+        .links a:hover { text-decoration: underline; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; }
+        .idle-badge { background: #d4edda; color: #155724; }
+        .busy-badge { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="badgeArea"></div>
+    <h2>Wordly Test Portal</h2>
+    <p>In order to trigger a Wordly session for testing purposes, click the button below and then join the session to verify the various outputs you may need.</p>
+    
+    <button id="triggerBtn" class="btn disabled" disabled>Checking Server...</button>
+    <p id="statusNote" style="display:none; color: #d9534f; font-size: 14px; font-weight: bold; margin-top: 15px;">
+        ⚠️ The session is currently running. Please wait until it finishes to trigger again.
+    </p>
+
+    <p style="font-size: 14px; color: #666;">The session will run for approximately 6 minutes. Once it ends, the button will re-enable automatically.</p>
+
+    <div class="links">
+        <strong>Access Links (Session ID: RVZM-5183):</strong><br>
+        • <a href="https://attend.wordly.ai/join/RVZM-5183" target="_blank">Attendee Experience</a><br>
+        • <a href="https://display.wordly.ai/app?sessionId=RVZM-5183" target="_blank">Standard Display</a><br>
+        • <a href="https://display.wordly.ai/subtitle" target="_blank">Subtitle Only Page</a>
+    </div>
+</div>
+
+<script>
+    // CONFIGURATION - PASTE YOUR DATA HERE
+    const GIST_ID = "40f9ddce54bfad333b711ae782e2d983";
+    const GITHUB_TOKEN = "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"; 
+    const FILENAME = "wordly_trigger.json";
+
+    const btn = document.getElementById('triggerBtn');
+    const note = document.getElementById('statusNote');
+    const badgeArea = document.getElementById('badgeArea');
+
+    async function checkStatus() {
+        try {
+            const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                headers: { 'Authorization': `token ${GITHUB_TOKEN}` }
+            });
+            const data = await res.json();
+            const content = JSON.parse(data.files[FILENAME].content);
+            const status = content.status;
+
+            if (status === "idle") {
+                btn.innerText = "🚀 Start Test Session";
+                btn.className = "btn active";
+                btn.disabled = false;
+                note.style.display = "none";
+                badgeArea.innerHTML = '<span class="status-badge idle-badge">Ready</span>';
+            } else {
+                btn.innerText = "⏳ Session in Progress";
+                btn.className = "btn disabled";
+                btn.disabled = true;
+                note.style.display = "block";
+                badgeArea.innerHTML = '<span class="status-badge busy-badge">Streaming</span>';
+            }
+        } catch (e) {
+            console.error("Status Check Failed", e);
+        }
+    }
+
+    async function triggerSession() {
+        if(!confirm("Start the 6-minute test stream?")) return;
+        
+        btn.innerText = "Triggering...";
+        btn.disabled = true;
+        
+        try {
+            await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    files: { [FILENAME]: { content: JSON.stringify({ status: "trigger" }) } }
+                })
+            });
+            // Give the Mac 3 seconds to pick it up, then refresh status
+            setTimeout(checkStatus, 3000);
+        } catch (e) {
+            alert("Failed to trigger. Check console.");
+        }
+    }
+
+    btn.onclick = triggerSession;
+    
+    // Poll every 20 seconds to update the UI for other users
+    setInterval(checkStatus, 20000);
+    checkStatus(); // Initial check
+</script>
+
+</body>
+</html>
